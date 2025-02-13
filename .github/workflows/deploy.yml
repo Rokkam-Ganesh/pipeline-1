@@ -45,6 +45,6 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i private_key.pem $AWS_USER@$AWS_HOST << 'EOF'
             cd /home/ubuntu/app
             npm install
-            pkill -f "node server.js" || true
-            nohup node server.js > output.log 2>&1 &
+            pkill -f "node index.js" || true
+            nohup node server/index.js > output.log 2>&1 &
           EOF
