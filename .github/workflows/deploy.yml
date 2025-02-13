@@ -15,15 +15,22 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18  # Ensure this matches your project setup
+          node-version: 18
 
       - name: Install dependencies
         run: |
           cd server
           npm install
 
-      - name: Check files before SCP
-        run: ls -la  # Lists all files to check if required files exist
+      - name: Check required files before SCP
+        run: |
+          ls -la
+          test -f package.json && echo "package.json exists" || echo "package.json NOT found"
+          test -f package-lock.json && echo "package-lock.json exists" || echo "package-lock.json NOT found"
+          test -d server && echo "server directory exists" || echo "server directory NOT found"
+          test -d client && echo "client directory exists" || echo "client directory NOT found"
+          exit 1
+        continue-on-error: true
 
       - name: Deploy to AWS EC2
         env:
@@ -31,24 +38,13 @@ jobs:
           AWS_HOST: ${{ secrets.AWS_HOST }}
           AWS_USER: ${{ secrets.AWS_USER }}
         run: |
-          # Save Private Key
           echo "$AWS_PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          
-          # Ensure the target directory exists on EC2
           ssh -o StrictHostKeyChecking=no -i private_key.pem $AWS_USER@$AWS_HOST "mkdir -p /home/ubuntu/app"
-
-          # Copy necessary files to EC2
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r client server package.json package-lock.json $AWS_USER@$AWS_HOST:/home/ubuntu/app/
-          
-          # SSH into EC2 and setup the application
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r client server server/package.json server/package-lock.json $AWS_USER@$AWS_HOST:/home/ubuntu/app/
           ssh -o StrictHostKeyChecking=no -i private_key.pem $AWS_USER@$AWS_HOST << 'EOF'
             cd /home/ubuntu/app
             npm install
-            
-            # Kill any running Node process (optional, prevents port conflicts)
             pkill -f "node server.js" || true
-            
-            # Start the server in the background
             nohup node server.js > output.log 2>&1 &
           EOF
