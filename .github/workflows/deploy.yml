@@ -31,10 +31,15 @@ jobs:
           printf "%s" "$AWS_PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
           
-          scp -i private_key.pem -r client server package.json $AWS_USER@$AWS_HOST:/home/ubuntu/app/
+          # Ensure the target directory exists on EC2
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $AWS_USER@$AWS_HOST "mkdir -p /home/ubuntu/app"
+
+          # Copy files to EC2
+          scp -o StrictHostKeyChecking=no -i private_key.pem -r client server package.json $AWS_USER@$AWS_HOST:/home/ubuntu/app/
           
-          ssh -i private_key.pem $AWS_USER@$AWS_HOST << 'EOF'
+          # Connect to EC2 and set up the application
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $AWS_USER@$AWS_HOST << 'EOF'
             cd /home/ubuntu/app
             npm install
-            pm2 restart server || pm2 start server/index.js --name server
+            pm2 startOrRestart server/index.js --name server || pm2 restart server
           EOF
